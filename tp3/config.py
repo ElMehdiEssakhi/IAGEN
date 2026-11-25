@@ -40,7 +40,7 @@ PROVIDERS = {
         "type": "openrouter",
         "base_url": "https://openrouter.ai/api/v1",
         "api_key": os.getenv("OPENROUTER_API_KEY", ""),
-        "model": "nvidia/nemotron-3-ultra-550b-a55b:free",   # check openrouter.ai/models for exact IDs
+        "model": "nvidia/nemotron-3.5-super-vl:free",   # check openrouter.ai/models for exact IDs
     },
 }
 
