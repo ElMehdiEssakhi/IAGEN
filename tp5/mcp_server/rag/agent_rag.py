@@ -3,9 +3,9 @@ from pathlib import Path
 
 from langchain.agents import create_agent
 from langchain_core.tools import tool
-
-from tp5.llm import get_llm
-from tp5.mcp_server.rag.indexer import get_collection, DATA
+from mcp_server.rag.vision import decrire_image
+from llm import get_llm
+from mcp_server.rag.index import get_collection, DATA
 
 DOSSIER_IMAGES = DATA / "images"
 EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp")
@@ -25,7 +25,7 @@ Si rien de pertinent n'est trouve, dis-le sans inventer."""
 
 # ---------- Image ----------
 
-def _resoudre_image(ref: str) -> Path | None:
+def resoudre_image(ref: str) -> Path | None:
     """Transforme une reference (ex: img_px200_01) en fichier local cote serveur."""
     ref = Path(ref).name  # evite la traversee de repertoire (../../etc)
     for ext in ("",) + EXTENSIONS:
@@ -35,34 +35,15 @@ def _resoudre_image(ref: str) -> Path | None:
     return None
 
 
-def _decrire_image(ref: str) -> str:
-    import base64, mimetypes
-
-    chemin = _resoudre_image(ref)
-    if chemin is None:
-        return f"(Image '{ref}' introuvable sur le serveur.)"
-
-    mime = mimetypes.guess_type(chemin.name)[0] or "image/png"
-    data = base64.b64encode(chemin.read_bytes()).decode()
-    rep = get_llm().invoke([{
-        "role": "user",
-        "content": [
-            {"type": "text", "text": "Decris factuellement cette image d'appareil : "
-                                     "voyants (couleur, clignotement), pictogramme, "
-                                     "texte ou code d'erreur visible."},
-            {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{data}"}},
-        ],
-    }])
-    return rep.content
-
-
 # ---------- Outils internes de l'agent RAG ----------
 
 def _etiquette(meta: dict) -> str:
     base = f"{meta['document']}, p.{meta['page']}"
-    if meta["type"] == "figure":
-        return f"{base}, figure {meta['figure']} ({meta['chemin']})"
-    return base
+    if meta["type"] != "figure":
+        return base
+    figure = meta.get("figure") or "?"
+    chemin = meta.get("chemin")
+    return f"{base}, figure {figure}" + (f" ({chemin})" if chemin else "")
 
 
 def _creer_outils(trouves: list[dict]):
@@ -103,10 +84,15 @@ def repondre(question: str, image: str | None = None) -> dict:
 
     message = question
     if image:
-        try:
-            message += f"\n\nDescription de l'image jointe ({image}) :\n{_decrire_image(image)}"
-        except Exception as e:
-            message += f"\n\n(Image '{image}' non analysable : {type(e).__name__}.)"
+        chemin = resoudre_image(image)
+        if chemin is None:
+            message += f"\n\n(Image '{image}' introuvable cote serveur : ignoree.)"
+        else:
+            try:
+                message += f"\n\nDescription de l'image jointe :\n{decrire_image(chemin)}"
+            except Exception as e:
+                message += f"\n\n(Image non analysable : {type(e).__name__}.)"
+
 
     trouves: list[dict] = []
     agent = create_agent(

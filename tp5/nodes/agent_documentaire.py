@@ -1,14 +1,13 @@
 # tp5/nodes/agent_documentaire.py
 import json
-from functools import lru_cache
+#from functools import lru_cache
 from typing import Literal
 
 from langchain.agents import create_agent
 from langgraph.types import Command
 from langchain_mcp_adapters.client import MultiServerMCPClient
-from tp5.llm import get_llm
-from tp5.state import EtatSAV
-from tp5.tools.rag import rag_multimodal
+from llm import get_llm
+from state import EtatSAV
 
 
 PROMPT =(
@@ -38,17 +37,28 @@ async def agent_documentaire(etat: EtatSAV) -> Command[Literal["orchestrateur"]]
         msg += f"\n(Photo de l'ecran jointe : {etat['image']})"
 
     react = await _get_react()
-    resultat =await react.invoke({"messages": [{"role": "user", "content": msg}]})
+    resultat =await react.ainvoke({"messages": [{"role": "user", "content": msg}]})
     messages = resultat["messages"]
 
-    # Récupère les sources depuis le retour de l'outil (ToolMessage)
+    # Récupère les sources depuis le retour des outils (ToolMessage).
+    # Le serveur MCP renvoie une liste de blocs {"type": "text", "text": "<json>"} :
+    # on aplatit les blocs, puis on fusionne les sources de chaque appel.
     sources: list[str] = []
     for m in messages:
-        if m.type == "tool":
-            try:
-                sources = json.loads(m.content).get("sources", [])
-            except (ValueError, AttributeError, TypeError):
-                pass
+        if m.type != "tool":
+            continue
+        contenu = m.content
+        if isinstance(contenu, list):
+            contenu = "".join(
+                bloc.get("text", "") for bloc in contenu if isinstance(bloc, dict)
+            )
+        try:
+            data = json.loads(contenu)
+        except (ValueError, TypeError):
+            continue
+        if isinstance(data, dict):
+            sources.extend(data.get("sources", []))
+    sources = list(dict.fromkeys(sources))  # sans doublons
 
     return Command(
         update={"reponse_finale": messages[-1].content, "sources": sources},

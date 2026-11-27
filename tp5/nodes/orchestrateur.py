@@ -4,8 +4,8 @@ from typing import Literal
 from langgraph.graph import END
 from pydantic import BaseModel
 
-from tp5.llm import get_llm
-from tp5.state import EtatSAV
+from llm import get_llm
+from state import EtatSAV
 
 PROMPT = """Tu es l'orchestrateur du SAV d'un distributeur d'appareils electroniques.
 Classe la demande dans UNE seule categorie :

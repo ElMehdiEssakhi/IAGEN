@@ -1,10 +1,10 @@
 # tp5/graph.py
 from langgraph.graph import StateGraph, START, END
 
-from tp5.state import EtatSAV
-from tp5.nodes.orchestrateur import orchestrateur, router
-from tp5.nodes.agent_documentaire import agent_documentaire
-from tp5.nodes.agent_garantie import agent_garantie
+from state import EtatSAV
+from nodes.orchestrateur import orchestrateur, router
+from nodes.agent_documentaire import agent_documentaire
+from nodes.agent_garantie import agent_garantie
 
 
 def construire_graphe():
